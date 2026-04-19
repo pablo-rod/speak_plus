@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPEAK+ — AI English Learning</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f5f3;
+    --color-background-tertiary: #eeecea;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #6b6b6b;
+    --color-border-tertiary: rgba(0,0,0,0.12);
+    --color-border-secondary: rgba(0,0,0,0.22);
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1e1e1e;
+      --color-background-secondary: #2a2a2a;
+      --color-background-tertiary: #242424;
+      --color-text-primary: #f0f0f0;
+      --color-text-secondary: #a0a0a0;
+      --color-border-tertiary: rgba(255,255,255,0.1);
+      --color-border-secondary: rgba(255,255,255,0.2);
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--color-background-tertiary);color:var(--color-text-primary);max-width:480px;margin:0 auto;min-height:100vh}
+  .screen{display:none;min-height:100vh;flex-direction:column}
+  .screen.active{display:flex}
+  .btn-primary{background:#534AB7;color:#fff;border:none;border-radius:var(--border-radius-lg);padding:14px 40px;font-size:16px;font-weight:500;cursor:pointer;width:100%;max-width:340px}
+  .btn-primary:hover{background:#3C3489}
+  .btn-secondary{background:transparent;color:#534AB7;border:0.5px solid #534AB7;border-radius:var(--border-radius-lg);padding:13px 40px;font-size:15px;font-weight:500;cursor:pointer;width:100%;max-width:340px}
+  .btn-secondary:hover{background:#EEEDFE}
+  .field{width:100%;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:11px 14px;font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary);outline:none;margin-bottom:10px;font-family:var(--font-sans)}
+  .field:focus{border-color:#534AB7}
+  .err-box{font-size:12px;color:#A32D2D;background:#FCEBEB;border:0.5px solid #F09595;border-radius:var(--border-radius-md);padding:8px 12px;margin-bottom:10px;display:none}
+  .ok-box{font-size:12px;color:#27500A;background:#EAF3DE;border:0.5px solid #97C459;border-radius:var(--border-radius-md);padding:8px 12px;margin-bottom:10px;display:none}
+  .tab-row{display:flex;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:20px}
+  .tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:500;cursor:pointer;color:var(--color-text-secondary);border-bottom:2px solid transparent;margin-bottom:-0.5px}
+  .tab.active{color:#534AB7;border-bottom:2px solid #534AB7}
+  .bubble{padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.55}
+  .msg{max-width:84%}
+  .msg.ai{align-self:flex-start}
+  .msg.user{align-self:flex-end}
+  .msg.ai .bubble{background:var(--color-background-secondary);border-radius:16px 16px 16px 4px;color:var(--color-text-primary)}
+  .msg.user .bubble{background:#534AB7;color:#fff;border-radius:16px 16px 4px 16px}
+  .msg-time{font-size:10px;color:var(--color-text-secondary);margin-top:3px}
+  .msg.user .msg-time{text-align:right}
+  .chat-area{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+  .qr-wrap{display:flex;flex-wrap:wrap;gap:7px;padding:6px 14px 10px}
+  .qr-btn{background:var(--color-background-primary);border:0.5px solid #534AB7;border-radius:20px;padding:7px 14px;font-size:13px;cursor:pointer;color:#534AB7}
+  .qr-btn:hover{background:#EEEDFE}
+  .input-row{padding:10px 14px;border-top:0.5px solid var(--color-border-tertiary);display:flex;gap:8px;align-items:center;background:var(--color-background-primary);flex-shrink:0}
+  .input-row input{flex:1;border:0.5px solid var(--color-border-tertiary);border-radius:22px;padding:9px 16px;font-size:14px;background:var(--color-background-secondary);color:var(--color-text-primary);outline:none}
+  .input-row input:focus{border-color:#534AB7}
+  .icon-btn{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .send-btn-ic{background:#534AB7}
+  .mic-btn-ic{background:#534AB7;transition:background 0.2s}
+  .mic-btn-ic.recording{background:#E24B4A;animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+  .dot-typing{display:inline-flex;gap:4px;align-items:center;padding:2px 0}
+  .dot-typing span{width:6px;height:6px;border-radius:50%;background:var(--color-text-secondary);animation:bounce 1.2s infinite}
+  .dot-typing span:nth-child(2){animation-delay:.2s}
+  .dot-typing span:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+  .progress-bar{height:4px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden}
+  .progress-fill{height:100%;background:#534AB7;border-radius:4px;transition:width .4s}
+  .tutor-card{flex:1;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:20px 12px;text-align:center;cursor:pointer;background:var(--color-background-primary);transition:border-color .15s}
+  .tutor-card:hover{border-color:#534AB7}
+  .tutor-card.sel{border:2px solid #534AB7;background:#EEEDFE}
+  .level-card{background:#534AB7;border-radius:var(--border-radius-lg);padding:16px;color:#fff;margin-bottom:10px}
+  .stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-lg);padding:14px;border:0.5px solid var(--color-border-tertiary)}
+  .mission{background:var(--color-background-primary);border-radius:var(--border-radius-lg);padding:12px 14px;border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;gap:12px;cursor:pointer;margin-bottom:8px}
+  .mission:hover{border-color:#534AB7}
+  .voice-indicator{background:#FCEBEB;border:0.5px solid #F09595;border-radius:var(--border-radius-md);padding:8px 12px;font-size:12px;color:#A32D2D;margin:0 14px 8px;display:none;align-items:center;gap:8px}
+  .voice-indicator.show{display:flex}
+  .voice-dots{display:flex;gap:3px;align-items:center}
+  .voice-dot{width:4px;border-radius:2px;background:#E24B4A;animation:voicewave 0.8s infinite}
+  .voice-dot:nth-child(1){height:8px;animation-delay:0s}
+  .voice-dot:nth-child(2){height:14px;animation-delay:0.15s}
+  .voice-dot:nth-child(3){height:10px;animation-delay:0.3s}
+  .voice-dot:nth-child(4){height:16px;animation-delay:0.45s}
+  .voice-dot:nth-child(5){height:8px;animation-delay:0.6s}
+  @keyframes voicewave{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.6)}}
+  .audio-play{display:inline-flex;align-items:center;gap:6px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;margin-top:5px;color:var(--color-text-secondary)}
+  .audio-play:hover{border-color:#534AB7;color:#534AB7}
+  .bottom-nav{display:flex;background:var(--color-background-primary);border-top:0.5px solid var(--color-border-tertiary);padding:8px 0 4px;flex-shrink:0}
+  .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px}
+  .nav-item .nav-lbl{font-size:10px;color:var(--color-text-secondary)}
+  .nav-item.active .nav-lbl{color:#534AB7;font-weight:500}
+  .api-banner{background:#EAF3DE;border:0.5px solid #97C459;border-radius:var(--border-radius-md);padding:8px 12px;font-size:12px;color:#27500A;margin:8px 14px 0;display:flex;align-items:center;gap:6px}
+  .xp-toast{display:none;background:#534AB7;color:#fff;border-radius:var(--border-radius-lg);padding:8px 16px;font-size:13px;font-weight:500;text-align:center;margin:6px 14px}
+  .xp-toast.show{display:block;animation:fadeup 0.4s ease}
+  @keyframes fadeup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .divider{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+  .divider hr{flex:1;border:none;border-top:0.5px solid var(--color-border-tertiary)}
+  .divider span{font-size:12px;color:var(--color-text-secondary)}
+  .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .user-chip{display:flex;align-items:center;gap:8px;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:8px 12px;margin-bottom:12px}
+  .user-chip-avatar{width:30px;height:30px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+  .user-chip-email{font-size:13px;color:var(--color-text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .logout-btn{font-size:12px;color:#A32D2D;background:none;border:none;cursor:pointer;flex-shrink:0;padding:2px 6px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ LOGIN / SIGNUP ═══════════════════════════════ -->
+<div id="s-auth" class="screen active" style="background:var(--color-background-primary);align-items:center;justify-content:center;padding:2rem 1.5rem">
+  <div style="font-size:32px;font-weight:500;color:#534AB7;letter-spacing:-1px;margin-bottom:4px;text-align:center">SPEAK<span style="color:var(--color-text-primary)">+</span></div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:2rem;text-align:center">AI · Voice · Real conversations</div>
+
+  <div style="width:100%;max-width:340px">
+    <div class="tab-row">
+      <div class="tab active" id="tab-login" onclick="switchTab('login')">Login</div>
+      <div class="tab" id="tab-signup" onclick="switchTab('signup')">Inscreva-se</div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <input class="field" type="email" id="login-email" placeholder="Email" autocomplete="email">
+      <input class="field" type="password" id="login-password" placeholder="Senha" autocomplete="current-password">
+      <div class="err-box" id="login-err"></div>
+      <button id="login-btn" onclick="doLogin()" style="width:100%;background:#534AB7;color:#fff;border:none;border-radius:var(--border-radius-lg);padding:13px;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:10px">Entrar →</button>
+      <div style="text-align:center;margin-top:4px">
+        <button onclick="doForgotPassword()" style="background:none;border:none;font-size:12px;color:var(--color-text-secondary);cursor:pointer;text-decoration:underline">Esqueci minha senha</button>
+      </div>
+      <div class="ok-box" id="login-ok"></div>
+    </div>
+
+    <!-- SIGNUP FORM -->
+    <div id="form-signup" style="display:none">
+      <input class="field" type="text" id="signup-name" placeholder="Seu nome" autocomplete="name">
+      <input class="field" type="email" id="signup-email" placeholder="Email" autocomplete="email">
+      <input class="field" type="password" id="signup-password" placeholder="Senha (mín. 6 caracteres)" autocomplete="new-password">
+      <div class="err-box" id="signup-err"></div>
+      <div class="ok-box" id="signup-ok"></div>
+      <button id="signup-btn" onclick="doSignup()" style="width:100%;background:#534AB7;color:#fff;border:none;border-radius:var(--border-radius-lg);padding:13px;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:10px">Criar conta →</button>
+    </div>
+
+    <div style="font-size:11px;color:var(--color-text-secondary);text-align:center;margin-top:1rem;line-height:1.6">
+      Ao continuar, você concorda com nossos termos de uso.<br>
+      Seus dados são salvos de forma segura via Supabase.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ LANDING ═══════════════════════════════ -->
+<div id="s-land" class="screen" style="background:var(--color-background-primary);align-items:center;justify-content:center;padding:2rem 1.5rem;text-align:center">
+  <div style="font-size:32px;font-weight:500;color:#534AB7;letter-spacing:-1px;margin-bottom:4px">SPEAK<span style="color:var(--color-text-primary)">+</span></div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:1.5rem">AI · Voice · Real conversations</div>
+  <div style="font-size:22px;font-weight:500;line-height:1.3;margin-bottom:0.5rem">Learn English by speaking<br>from day one.</div>
+  <div style="font-size:14px;color:var(--color-text-secondary);margin-bottom:2rem;max-width:300px">Real AI tutor + voice recognition that adapts to your level in real time.</div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:2rem;width:100%;max-width:320px">
+    <div style="display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:12px 16px;text-align:left">
+      <div style="width:36px;height:36px;border-radius:8px;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+      <div><div style="font-size:14px;font-weight:500">Real AI tutor (Gemini)</div><div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px">Dynamic responses, personalized feedback</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:12px 16px;text-align:left">
+      <div style="width:36px;height:36px;border-radius:8px;background:#E1F5EE;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🎙️</div>
+      <div><div style="font-size:14px;font-weight:500">Voice recognition</div><div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px">Speak directly — Web Speech API</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:12px 16px;text-align:left">
+      <div style="width:36px;height:36px;border-radius:8px;background:#FAEEDA;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏆</div>
+      <div><div style="font-size:14px;font-weight:500">XP & daily missions</div><div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px">Gamification to build daily habit</div></div>
+    </div>
+  </div>
+  <button class="btn-primary" onclick="go('s-tutor')">Get started →</button>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-top:12px">Powered by Gemini AI · Progress saved automatically</div>
+</div>
+
+<!-- ═══════════════════════════════ TUTOR CHOICE ═══════════════════════════════ -->
+<div id="s-tutor" class="screen" style="background:var(--color-background-primary);align-items:center;justify-content:center;padding:2rem 1.5rem">
+  <div style="width:100%;max-width:360px">
+    <div style="font-size:20px;font-weight:500;text-align:center;margin-bottom:4px">Choose your tutor</div>
+    <div style="font-size:14px;color:var(--color-text-secondary);text-align:center;margin-bottom:1.5rem">They'll guide your entire journey</div>
+    <div style="display:flex;gap:14px;margin-bottom:1.5rem">
+      <div class="tutor-card" id="tc-aiden" onclick="pickTutor('aiden')">
+        <div style="width:60px;height:60px;border-radius:50%;background:#E6F1FB;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:26px">👨‍💼</div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:4px">Aiden</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.4">Direct, confident<br>& motivating</div>
+      </div>
+      <div class="tutor-card" id="tc-aila" onclick="pickTutor('aila')">
+        <div style="width:60px;height:60px;border-radius:50%;background:#FBEAF0;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:26px">👩‍🏫</div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:4px">Aila</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.4">Warm, patient<br>& encouraging</div>
+      </div>
+    </div>
+    <button id="btn-go" class="btn-primary" style="opacity:0.4;pointer-events:none" onclick="beginTest()">Start level test →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ LEVEL TEST ═══════════════════════════════ -->
+<div id="s-test" class="screen">
+  <div style="padding:14px 16px 10px;border-bottom:0.5px solid var(--color-border-tertiary);flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div id="hdr-avatar" style="width:36px;height:36px;border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👨‍💼</div>
+      <div>
+        <div id="hdr-name" style="font-size:14px;font-weight:500">Aiden</div>
+        <div style="font-size:11px;color:#0F6E56">● Level test in progress</div>
+      </div>
+      <div id="voice-status" style="margin-left:auto;font-size:11px;color:var(--color-text-secondary)"></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="test-prog" style="width:5%"></div></div>
+    <div id="step-lbl" style="font-size:11px;color:var(--color-text-secondary);margin-top:5px">Step 1 of 4</div>
+  </div>
+  <div id="voice-ind" class="voice-indicator">
+    <div class="voice-dots"><div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div></div>
+    <span id="voice-txt">Listening...</span>
+  </div>
+  <div class="chat-area" id="test-msgs"></div>
+  <div class="qr-wrap" id="test-qr"></div>
+  <div class="input-row">
+    <input type="text" id="test-inp" placeholder="Type or use the mic..." onkeydown="if(event.key==='Enter')submitTest()">
+    <button class="icon-btn mic-btn-ic" id="mic-test" onclick="toggleMic('test')" title="Tap to speak">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="1" width="6" height="9" rx="3" fill="white"/><path d="M2 8c0 3.3 2.7 6 6 6s6-2.7 6-6" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/><line x1="8" y1="14" x2="8" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn send-btn-ic" onclick="submitTest()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l12-6-5 6 5 6-12-6z" fill="white"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ DASHBOARD ═══════════════════════════════ -->
+<div id="s-dash" class="screen" style="background:var(--color-background-tertiary)">
+  <div style="background:var(--color-background-primary);padding:14px 18px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+    <div style="font-size:20px;font-weight:500;color:#534AB7">SPEAK+</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="font-size:12px;color:#534AB7;font-weight:500">🔥 <span id="streak-num">0</span> days</div>
+      <div style="width:34px;height:34px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer" onclick="go('s-lesson')">👤</div>
+      <button onclick="doLogout()" style="background:none;border:none;font-size:12px;color:#A32D2D;cursor:pointer;padding:4px 6px;border-radius:6px" title="Sair">⏏</button>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px">
+    <div>
+      <div style="font-size:18px;font-weight:500" id="d-greet">Good day!</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);margin-top:2px" id="d-sub">Your tutor is ready.</div>
+    </div>
+    <div class="level-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:12px;opacity:0.8;margin-bottom:3px">Current level</div>
+          <div style="font-size:19px;font-weight:500" id="d-level">Beginner</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:500;background:rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px" id="d-lvnum">Lv. 1</div>
+          <div style="font-size:12px;opacity:0.8;margin-top:6px" id="d-xp">0 XP</div>
+        </div>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,0.25);border-radius:6px;overflow:hidden">
+        <div style="height:100%;background:#fff;border-radius:6px;width:0%" id="d-bar"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;opacity:0.75;margin-top:4px"><span id="d-xpnext">100 XP to next level</span><span>Lv. 2</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="stat-card"><div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px">Lessons done</div><div style="font-size:22px;font-weight:500;color:#534AB7" id="d-lessons">0</div><div style="font-size:11px;color:#0F6E56" id="d-lessons-sub">Start your first!</div></div>
+      <div class="stat-card"><div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px">Accuracy</div><div style="font-size:22px;font-weight:500;color:#0F6E56" id="d-accuracy">—</div><div style="font-size:11px;color:var(--color-text-secondary)">after first lesson</div></div>
+    </div>
+    <div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:8px">Daily missions</div>
+      <div class="mission" onclick="go('s-lesson')">
+        <div style="width:34px;height:34px;border-radius:8px;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:16px">💬</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">Complete a speaking exercise</div><div style="font-size:11px;color:var(--color-text-secondary)">+50 XP</div></div>
+        <div style="color:var(--color-text-secondary);font-size:16px">›</div>
+      </div>
+      <div class="mission" onclick="go('s-lesson')">
+        <div style="width:34px;height:34px;border-radius:8px;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:16px">🎙️</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">Speak for 2 minutes</div><div style="font-size:11px;color:var(--color-text-secondary)">+100 XP</div></div>
+        <div style="color:var(--color-text-secondary);font-size:16px">›</div>
+      </div>
+      <div class="mission" onclick="go('s-lesson')">
+        <div style="width:34px;height:34px;border-radius:8px;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:16px">📖</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">Practice prepositions</div><div style="font-size:11px;color:var(--color-text-secondary)">+80 XP</div></div>
+        <div style="color:var(--color-text-secondary);font-size:16px">›</div>
+      </div>
+    </div>
+    <div style="background:var(--color-background-primary);border-radius:var(--border-radius-lg);padding:14px;border:0.5px solid var(--color-border-tertiary)">
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px">Areas to improve</div>
+      <span id="d-errors" style="font-size:13px;color:var(--color-text-secondary)">Complete your first lesson to see your areas!</span>
+    </div>
+    <button class="btn-primary" style="max-width:100%" onclick="go('s-lesson')">Start today's lesson →</button>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="go('s-dash')"><div style="font-size:18px">🏠</div><div class="nav-lbl">Home</div></div>
+    <div class="nav-item" onclick="go('s-lesson')"><div style="font-size:18px">💬</div><div class="nav-lbl">Practice</div></div>
+    <div class="nav-item"><div style="font-size:18px">📊</div><div class="nav-lbl">Progress</div></div>
+    <div class="nav-item"><div style="font-size:18px">🏆</div><div class="nav-lbl">Achievements</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ LESSON CHAT ═══════════════════════════════ -->
+<div id="s-lesson" class="screen">
+  <div style="padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--color-background-primary)">
+    <button style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);padding:0 4px" onclick="go('s-dash')">←</button>
+    <div id="l-avatar" style="width:34px;height:34px;border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">👨‍💼</div>
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:500" id="l-tutor-name">Aiden</div>
+      <div style="font-size:11px;color:var(--color-text-secondary)">Prepositions · Travel context</div>
+    </div>
+    <div style="background:#EEEDFE;color:#534AB7;font-size:12px;border-radius:20px;padding:4px 10px;font-weight:500">+80 XP</div>
+  </div>
+  <div id="api-banner" class="api-banner">🤖 Gemini AI connected · Progress saved to your account</div>
+  <div id="voice-ind2" class="voice-indicator">
+    <div class="voice-dots"><div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div><div class="voice-dot"></div></div>
+    <span id="voice-txt2">Listening...</span>
+  </div>
+  <div class="chat-area" id="lesson-msgs"></div>
+  <div id="xp-toast" class="xp-toast"></div>
+  <div class="qr-wrap" id="lesson-qr"></div>
+  <div class="input-row">
+    <input type="text" id="lesson-inp" placeholder="Reply in English..." onkeydown="if(event.key==='Enter')submitLesson()">
+    <button class="icon-btn mic-btn-ic" id="mic-lesson" onclick="toggleMic('lesson')" title="Tap to speak">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="1" width="6" height="9" rx="3" fill="white"/><path d="M2 8c0 3.3 2.7 6 6 6s6-2.7 6-6" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/><line x1="8" y1="14" x2="8" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn send-btn-ic" onclick="submitLesson()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l12-6-5 6 5 6-12-6z" fill="white"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ─── CONFIGURAÇÃO SUPABASE ─── */
+/* Substitua os valores abaixo pelos do seu projeto Supabase */
+var SUPABASE_URL = 'https://SEU_PROJECT_ID.supabase.co';
+var SUPABASE_ANON_KEY = 'SUA_ANON_KEY_AQUI';
+var GEMINI_API_KEY = 'SUA_GEMINI_KEY_AQUI';
+
+var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ─── ESTADO DA APLICAÇÃO ─── */
+var APP = {
+  user: null,
+  tutor: 'aiden',
+  level: 'Beginner',
+  xp: 0,
+  lessons: 0,
+  streak: 0,
+  testStep: 0,
+  history: [],
+  lessonHistory: [],
+  recognition: null,
+  isRecording: false,
+  activeTarget: null,
+  voiceSupported: false
+};
+
+/* ─── TUTORES ─── */
+var TUTORS = {
+  aiden: {
+    name: 'Aiden', avatar: '👨‍💼', avatarBg: '#E6F1FB',
+    systemPrompt: 'You are Aiden, a direct, confident and motivating English tutor inside SPEAK+, an AI English learning app. Your style: concise, energetic, use short sentences, occasional encouragement like "Nice!", "Let\'s go!", "You got this!". Always respond in English. When the student makes grammar mistakes, correct them clearly but briefly. Format corrections with ✅ for what\'s good and 📌 for what to fix. Keep responses under 100 words. After your response, always ask them to practice or respond to keep the conversation going.'
+  },
+  aila: {
+    name: 'Aila', avatar: '👩‍🏫', avatarBg: '#FBEAF0',
+    systemPrompt: 'You are Aila, a warm, patient and encouraging English tutor inside SPEAK+, an AI English learning app. Your style: gentle, supportive, use phrases like "Great effort!", "Don\'t worry, let\'s try together!", "You\'re doing so well!". Always respond in English. When the student makes grammar mistakes, correct them kindly and briefly. Format corrections with ✅ for what\'s good and 📌 for what to fix. Keep responses under 100 words. After your response, always invite them to try again or continue.'
+  }
+};
+
+/* ─── NÍVEL DO TESTE ─── */
+var TEST_STEPS = [
+  {pct:'20%', lbl:'Step 1 of 4 · Reading comprehension', systemNote:'This is step 1 of a level test. Start with a warm greeting, then show this sentence and ask the student to explain what it means: "She missed her flight because she arrived at the airport too late." Ask them what happened.'},
+  {pct:'45%', lbl:'Step 2 of 4 · Writing', systemNote:'Step 2 of a level test. Ask the student to write 2-3 sentences about their daily morning routine in English.'},
+  {pct:'68%', lbl:'Step 3 of 4 · Speaking', systemNote:'Step 3 of a level test. Ask the student to introduce themselves in English (name, origin, occupation) using the mic or by typing.'},
+  {pct:'88%', lbl:'Step 4 of 4 · Role-play', systemNote:'Step 4. Simulate a hotel check-in: you are the receptionist. Start with "Good evening! Welcome to Grand Hotel. Do you have a reservation?"'},
+  {pct:'100%', lbl:'Test complete!', systemNote:'Test complete. Assess the student as Beginner, Basic, Intermediate, or Advanced based on the conversation. Give level, 2 strengths, 2 areas to improve. Be encouraging!'}
+];
+
+/* ══════════════════════════════════════════════════
+   AUTH — LOGIN / SIGNUP / LOGOUT
+══════════════════════════════════════════════════ */
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('form-signup').style.display = tab === 'signup' ? 'block' : 'none';
+}
+
+function setAuthBtn(btnId, loading, text) {
+  var btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span>' + text : text;
+  btn.style.opacity = loading ? '0.75' : '1';
+}
+
+async function doLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  var errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  if (!email || !password) { showErr('login-err', 'Preencha email e senha.'); return; }
+  setAuthBtn('login-btn', true, 'Entrando...');
+  var result = await supabase.auth.signInWithPassword({email: email, password: password});
+  setAuthBtn('login-btn', false, 'Entrar →');
+  if (result.error) { showErr('login-err', result.error.message); return; }
+  APP.user = result.data.user;
+  await loadUserProgress();
+  go('s-land');
+}
+
+async function doSignup() {
+  var name = document.getElementById('signup-name').value.trim();
+  var email = document.getElementById('signup-email').value.trim();
+  var password = document.getElementById('signup-password').value;
+  if (!name || !email || !password) { showErr('signup-err', 'Preencha todos os campos.'); return; }
+  if (password.length < 6) { showErr('signup-err', 'A senha deve ter pelo menos 6 caracteres.'); return; }
+  setAuthBtn('signup-btn', true, 'Criando conta...');
+  var result = await supabase.auth.signUp({
+    email: email, password: password,
+    options: { data: { full_name: name } }
+  });
+  setAuthBtn('signup-btn', false, 'Criar conta →');
+  if (result.error) { showErr('signup-err', result.error.message); return; }
+  if (result.data.user && !result.data.session) {
+    showOk('signup-ok', '✅ Conta criada! Verifique seu email para confirmar o cadastro.');
+  } else {
+    APP.user = result.data.user;
+    await createUserProgress(name);
+    go('s-land');
+  }
+}
+
+async function doForgotPassword() {
+  var email = document.getElementById('login-email').value.trim();
+  if (!email) { showErr('login-err', 'Insira seu email para redefinir a senha.'); return; }
+  var result = await supabase.auth.resetPasswordForEmail(email);
+  if (result.error) { showErr('login-err', result.error.message); }
+  else { showOk('login-ok', '📧 Link de redefinição enviado para ' + email); }
+}
+
+async function doLogout() {
+  await supabase.auth.signOut();
+  APP.user = null;
+  APP.xp = 0; APP.lessons = 0; APP.streak = 0;
+  APP.level = 'Beginner'; APP.history = []; APP.lessonHistory = [];
+  go('s-auth');
+}
+
+/* ══════════════════════════════════════════════════
+   SUPABASE — PROGRESSO DO USUÁRIO
+══════════════════════════════════════════════════ */
+async function createUserProgress(name) {
+  await supabase.from('user_progress').insert({
+    user_id: APP.user.id,
+    full_name: name,
+    level: 'Beginner',
+    xp: 0,
+    lessons_done: 0,
+    streak: 0,
+    tutor: 'aiden',
+    errors: []
+  });
+}
+
+async function loadUserProgress() {
+  var result = await supabase
+    .from('user_progress')
+    .select('*')
+    .eq('user_id', APP.user.id)
+    .single();
+  if (result.data) {
+    APP.level   = result.data.level   || 'Beginner';
+    APP.xp      = result.data.xp      || 0;
+    APP.lessons = result.data.lessons_done || 0;
+    APP.streak  = result.data.streak  || 0;
+    APP.tutor   = result.data.tutor   || 'aiden';
+  }
+}
+
+async function saveUserProgress() {
+  if (!APP.user) return;
+  await supabase.from('user_progress').upsert({
+    user_id: APP.user.id,
+    level: APP.level,
+    xp: APP.xp,
+    lessons_done: APP.lessons,
+    streak: APP.streak,
+    tutor: APP.tutor,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id' });
+}
+
+/* ══════════════════════════════════════════════════
+   NAVEGAÇÃO
+══════════════════════════════════════════════════ */
+function go(id) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  if (id === 's-lesson' && APP.lessonHistory.length === 0) initLesson();
+  if (id === 's-dash') updateDash();
+}
+
+/* ══════════════════════════════════════════════════
+   TUTORES
+══════════════════════════════════════════════════ */
+function pickTutor(t) {
+  APP.tutor = t;
+  ['aiden','aila'].forEach(function(x){ document.getElementById('tc-'+x).classList.toggle('sel', x===t); });
+  var btn = document.getElementById('btn-go');
+  btn.style.opacity = '1'; btn.style.pointerEvents = 'all';
+}
+
+/* ══════════════════════════════════════════════════
+   TESTE DE NIVELAMENTO
+══════════════════════════════════════════════════ */
+function beginTest() {
+  var td = TUTORS[APP.tutor];
+  document.getElementById('hdr-avatar').textContent = td.avatar;
+  document.getElementById('hdr-avatar').style.background = td.avatarBg;
+  document.getElementById('hdr-name').textContent = td.name;
+  initVoice();
+  go('s-test');
+  runTestStep(0);
+}
+
+function runTestStep(idx) {
+  if (idx >= TEST_STEPS.length) return;
+  var step = TEST_STEPS[idx];
+  document.getElementById('test-prog').style.width = step.pct;
+  document.getElementById('step-lbl').textContent = step.lbl;
+  APP.testStep = idx;
+  var msgs = APP.history.length === 0
+    ? [{role:'user', content: step.systemNote}]
+    : APP.history.concat([{role:'user', content:'[SYSTEM: ' + step.systemNote + '] Continue naturally.'}]);
+  callGemini(msgs, 's-test', function(reply){ APP.history.push({role:'assistant', content: reply}); });
+}
+
+function submitTest() {
+  var inp = document.getElementById('test-inp');
+  var val = inp.value.trim(); if (!val) return;
+  inp.value = ''; clearQR('test-qr');
+  addMsg('test-msgs', val, 'user');
+  APP.history.push({role:'user', content: val});
+  processTestReply();
+}
+
+function processTestReply() {
+  var nextStep = APP.testStep + 1;
+  if (nextStep < TEST_STEPS.length) {
+    var step = TEST_STEPS[nextStep];
+    var msgs = APP.history.concat([{role:'user', content:'[SYSTEM: ' + step.systemNote + ']'}]);
+    callGemini(msgs, 's-test', function(reply){
+      APP.history.push({role:'assistant', content: reply});
+      document.getElementById('test-prog').style.width = step.pct;
+      document.getElementById('step-lbl').textContent = step.lbl;
+      APP.testStep = nextStep;
+      if (nextStep === TEST_STEPS.length - 1) {
+        setTimeout(function(){
+          setQR('test-qr', ['Go to my dashboard →'], function(){
+            clearQR('test-qr');
+            APP.lessons += 1;
+            saveUserProgress();
+            updateDash();
+            go('s-dash');
+          });
+        }, 1200);
+      }
+    });
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   AULA
+══════════════════════════════════════════════════ */
+function initLesson() {
+  var td = TUTORS[APP.tutor];
+  document.getElementById('l-avatar').textContent = td.avatar;
+  document.getElementById('l-avatar').style.background = td.avatarBg;
+  document.getElementById('l-tutor-name').textContent = td.name;
+  initVoice();
+  var sysNote = 'Conduct a lesson for a ' + APP.level + ' student. Focus: prepositions (at/on/in) in travel contexts. Greet them, explain the topic briefly, give a real example with 🔊 [' + td.name + ' says: "..."] notation, then ask them to make a similar sentence.';
+  APP.lessonHistory = [{role:'user', content: sysNote}];
+  callGemini(APP.lessonHistory, 's-lesson', function(reply){
+    APP.lessonHistory.push({role:'assistant', content: reply});
+  });
+}
+
+function submitLesson() {
+  var inp = document.getElementById('lesson-inp');
+  var val = inp.value.trim(); if (!val) return;
+  inp.value = ''; clearQR('lesson-qr');
+  addMsg('lesson-msgs', val, 'user');
+  APP.lessonHistory.push({role:'user', content: val});
+  callGemini(APP.lessonHistory, 's-lesson', function(reply){
+    APP.lessonHistory.push({role:'assistant', content: reply});
+    awardXP(15);
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   GEMINI API
+══════════════════════════════════════════════════ */
+function callGemini(messages, targetScreen, onDone) {
+  var chatId = targetScreen === 's-test' ? 'test-msgs' : 'lesson-msgs';
+  var typingEl = addTyping(chatId);
+  var systemPrompt = TUTORS[APP.tutor].systemPrompt;
+  var geminiContents = messages.map(function(m) {
+    return { role: m.role === 'assistant' ? 'model' : 'user', parts: [{text: m.content}] };
+  });
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=' + GEMINI_API_KEY, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      system_instruction: {parts: [{text: systemPrompt}]},
+      contents: geminiContents,
+      generationConfig: {maxOutputTokens: 300, temperature: 0.85}
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    typingEl.remove();
+    var text = '';
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      data.candidates[0].content.parts.forEach(function(p){ if (p.text) text += p.text; });
+    } else if (data.error) {
+      text = '⚠️ ' + (data.error.message || 'API error') + '. Please try again.';
+    }
+    addMsg(chatId, text, 'ai');
+    if (onDone) onDone(text);
+  })
+  .catch(function(){
+    typingEl.remove();
+    addMsg(chatId, 'Connection issue. Check your network and try again!', 'ai');
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════════ */
+function addMsg(containerId, text, role) {
+  var c = document.getElementById(containerId);
+  var d = document.createElement('div');
+  d.className = 'msg ' + role;
+  var html = text.replace(/\n/g, '<br>');
+  var extra = '';
+  if (role === 'ai' && text.includes('🔊')) {
+    extra = '<div><button class="audio-play" onclick="speakText(this)" data-text="' + text.replace(/"/g,"'").replace(/<[^>]*>/g,'').substring(0,200) + '">▶ Play audio</button></div>';
+  }
+  d.innerHTML = '<div class="bubble">' + html + extra + '</div><div class="msg-time">' + getTime() + '</div>';
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+function addTyping(containerId) {
+  var c = document.getElementById(containerId);
+  var d = document.createElement('div');
+  d.className = 'msg ai';
+  d.innerHTML = '<div class="bubble"><div class="dot-typing"><span></span><span></span><span></span></div></div>';
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+function setQR(id, options, cb) {
+  var area = document.getElementById(id); area.innerHTML = '';
+  (options || []).forEach(function(opt){
+    var b = document.createElement('button');
+    b.className = 'qr-btn'; b.textContent = opt;
+    b.onclick = function(){ cb(opt); };
+    area.appendChild(b);
+  });
+}
+function clearQR(id){ document.getElementById(id).innerHTML = ''; }
+function getTime(){ var d = new Date(); return d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0'); }
+
+function showErr(elId, msg){ var e = document.getElementById(elId); e.textContent = '⚠️ ' + msg; e.style.display = 'block'; }
+function showOk(elId, msg){ var e = document.getElementById(elId); e.textContent = msg; e.style.display = 'block'; }
+
+function updateDash() {
+  var h = new Date().getHours();
+  var g = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  var name = APP.user && APP.user.user_metadata && APP.user.user_metadata.full_name
+    ? APP.user.user_metadata.full_name.split(' ')[0]
+    : '';
+  document.getElementById('d-greet').textContent = g + (name ? ', ' + name : '') + '! 👋';
+  document.getElementById('d-sub').textContent = TUTORS[APP.tutor].name + ' is ready for your lesson.';
+  document.getElementById('d-level').textContent = APP.level;
+  document.getElementById('d-xp').textContent = APP.xp.toLocaleString() + ' XP';
+  document.getElementById('d-lessons').textContent = APP.lessons;
+  document.getElementById('streak-num').textContent = APP.streak;
+  var xpForNext = 100 - (APP.xp % 100);
+  document.getElementById('d-xpnext').textContent = xpForNext + ' XP to next level';
+  var lv = Math.floor(APP.xp / 100) + 1;
+  document.getElementById('d-lvnum').textContent = 'Lv. ' + lv;
+  document.getElementById('d-bar').style.width = ((APP.xp % 100)) + '%';
+  if (APP.lessons > 0) {
+    document.getElementById('d-lessons-sub').textContent = 'Keep it up!';
+    document.getElementById('d-accuracy').textContent = '84%';
+  }
+}
+
+function awardXP(amt) {
+  APP.xp += amt;
+  APP.lessons += 1;
+  saveUserProgress();
+  var t = document.getElementById('xp-toast');
+  t.textContent = '+' + amt + ' XP earned! 🎉';
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  updateDash();
+}
+
+/* ══════════════════════════════════════════════════
+   SPEECH
+══════════════════════════════════════════════════ */
+function speakText(btn) {
+  if (!window.speechSynthesis) return;
+  var text = btn.getAttribute('data-text').replace(/[🔊🎙️✅📌🎯💪👋🏆]/g,'');
+  var u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.92;
+  window.speechSynthesis.speak(u);
+}
+
+function initVoice() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { APP.voiceSupported = false; document.getElementById('voice-status').textContent = 'Voice: not supported'; return; }
+  APP.voiceSupported = true;
+  document.getElementById('voice-status').textContent = '🎙️ Voice ready';
+  APP.recognition = new SR();
+  APP.recognition.continuous = false;
+  APP.recognition.interimResults = true;
+  APP.recognition.lang = 'en-US';
+  APP.recognition.onresult = function(e) {
+    var interim = '', final = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    var txt = (final || interim).trim();
+    var indEl = document.getElementById(APP.activeTarget === 'test' ? 'voice-txt' : 'voice-txt2');
+    if (indEl) indEl.textContent = txt ? '"' + txt + '"' : 'Listening...';
+    if (final) document.getElementById(APP.activeTarget === 'test' ? 'test-inp' : 'lesson-inp').value = final;
+  };
+  APP.recognition.onend = function() {
+    stopMic();
+    var inpId = APP.activeTarget === 'test' ? 'test-inp' : 'lesson-inp';
+    var val = document.getElementById(inpId).value.trim();
+    if (val) setTimeout(function(){ if (APP.activeTarget === 'test') submitTest(); else submitLesson(); }, 300);
+  };
+  APP.recognition.onerror = function(e) {
+    stopMic();
+    if (e.error !== 'no-speech') {
+      var chatId = APP.activeTarget === 'test' ? 'test-msgs' : 'lesson-msgs';
+      addMsg(chatId, '⚠️ Mic error: ' + e.error + '. Try typing instead!', 'ai');
+    }
+  };
+}
+
+function toggleMic(target) {
+  if (!APP.voiceSupported) { alert('Voice not supported. Use Chrome or Edge.'); return; }
+  APP.activeTarget = target;
+  if (APP.isRecording) APP.recognition.stop();
+  else startMic(target);
+}
+
+function startMic(target) {
+  APP.isRecording = true;
+  document.getElementById(target === 'test' ? 'mic-test' : 'mic-lesson').classList.add('recording');
+  document.getElementById(target === 'test' ? 'voice-ind' : 'voice-ind2').classList.add('show');
+  document.getElementById(target === 'test' ? 'voice-txt' : 'voice-txt2').textContent = 'Listening...';
+  try { APP.recognition.start(); } catch(e) {}
+}
+
+function stopMic() {
+  APP.isRecording = false;
+  ['mic-test','mic-lesson'].forEach(function(id){ var el = document.getElementById(id); if (el) el.classList.remove('recording'); });
+  ['voice-ind','voice-ind2'].forEach(function(id){ var el = document.getElementById(id); if (el) el.classList.remove('show'); });
+}
+
+/* ══════════════════════════════════════════════════
+   INICIALIZAÇÃO — verifica sessão ativa
+══════════════════════════════════════════════════ */
+(async function init() {
+  var sessionResult = await supabase.auth.getSession();
+  if (sessionResult.data && sessionResult.data.session) {
+    APP.user = sessionResult.data.session.user;
+    await loadUserProgress();
+    go('s-land');
+  }
+  /* escuta mudanças de auth em tempo real */
+  supabase.auth.onAuthStateChange(function(event, session) {
+    if (event === 'SIGNED_OUT') { APP.user = null; go('s-auth'); }
+  });
+})();
+</script>
+</body>
+</html>
